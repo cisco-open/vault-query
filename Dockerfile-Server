@@ -1,0 +1,18 @@
+############################
+# STEP 1 build executable binary
+############################
+FROM golang:alpine AS builder
+RUN apk update && apk add --no-cache git
+WORKDIR /app
+COPY . .
+RUN apk --update add ca-certificates
+RUN apk add --no-cache make
+RUN make build-server
+
+############################
+# STEP 2 build a small image
+############################
+FROM scratch
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=builder /app/bin/vq-server vq-server
+ENTRYPOINT ["./vq-server"]

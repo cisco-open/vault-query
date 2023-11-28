@@ -1,0 +1,564 @@
+# Copyright 2023 Cisco Systems, Inc. and its affiliates
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+swagger: '2.0'
+info:
+  contact:
+    email: subbaksh@cisco.com
+  description: This is a simple api to query vault for policies and entities
+  title: vault-query
+  version: 1.0.0
+paths:
+  '/policy/fetch/{policyName}':
+    get:
+      produces:
+        - application/json
+      parameters:
+        - description: name of the policy
+          in: path
+          name: policyName
+          required: true
+          type: string
+        - description: namespace of the policy
+          in: query
+          name: namespace
+          required: false
+          type: string
+      responses:
+        '200':
+          description: successful operation
+          schema:
+            properties:
+              policyName:
+                description: The name of policy
+                example: policy-a
+                type: string
+              policyRaw:
+                description: The raw policy as string
+                type: string
+              messages:
+                description: Human readable messages from the server
+                items:
+                  $ref: '#/definitions/Message'
+                type: array
+            type: object
+        '400':
+          description: Bad request
+          schema:
+            properties:
+              id:
+                type: string
+              messages:
+                description: Human readable messages from the server
+                items:
+                  $ref: '#/definitions/Message'
+                type: array
+        '401':
+          description: Token accessor invalid/not enough permissions
+          schema:
+            properties:
+              id:
+                type: string
+        '404':
+          description: Policy not found
+          schema:
+            properties:
+              id:
+                type: string
+        '500':
+          description: Internal error processing request
+          schema:
+            properties:
+              id:
+                type: string
+      security:
+        - TokenAccessorAuth: []
+      tags:
+        - policy
+      description: Returns a policy string
+      operationId: getPolicyByName
+      summary: Find policy by name
+  /policy/query/allowed:
+    post:
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/Request'
+      responses:
+        '200':
+          description: Successful query
+          schema:
+            $ref: '#/definitions/Response'
+        '400':
+          description: Bad request
+          schema:
+            properties:
+              id:
+                type: string
+              messages:
+                description: Human readable messages from the server
+                items:
+                  $ref: '#/definitions/Message'
+                type: array
+        '401':
+          description: Token accessor invalid/not enough permissions
+          schema:
+            properties:
+              id:
+                type: string
+              message:
+                type: string
+        '500':
+          description: Internal error processing request
+          schema:
+            properties:
+              id:
+                type: string
+      security:
+        - TokenAccessorAuth: []
+      tags:
+        - policy
+      operationId: queryPolicyAllowed
+      summary: Query if a path is allowed
+  /policy/search:
+    post:
+      security:
+        - TokenAccessorAuth: [ ]
+      tags:
+        - policy
+      operationId: searchPolicy
+      summary: Search which policy allow an operation on a vault path
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            properties:
+              pathDetails:
+                properties:
+                  namespace:
+                    description: The namespace in which the path/query occurs
+                    example: foo/dev
+                    type: string
+                  op:
+                    description: The HTTP operation for the pqth
+                    example: create
+                    type: string
+                    enum: [ create, read, update, patch, delete, list, help, alias-lookahead, resolve-role, revoke, renew, rollback ]
+                  path:
+                    description: The vault path for the query
+                    example: secret/data/foo/bar
+                    type: string
+      responses:
+        '200':
+          description: successful operation
+          schema:
+            properties:
+              grantingPolicySegments:
+                type: object
+                additionalProperties:
+                  type: object
+                  additionalProperties:
+                    type: array
+                    items:
+                      $ref: '#/definitions/PolicySegment'
+              denyingPolicySegments:
+                type: object
+                additionalProperties:
+                  type: object
+                  additionalProperties:
+                    type: array
+                    items:
+                      $ref: '#/definitions/PolicySegment'
+              messages:
+                description: Human readable messages from the server
+                items:
+                  $ref: '#/definitions/Message'
+                type: array
+        '400':
+          description: Bad request
+          schema:
+            properties:
+              id:
+                type: string
+              messages:
+                description: Human readable messages from the server
+                items:
+                  $ref: '#/definitions/Message'
+                type: array
+        '401':
+          description: Token accessor invalid/not enough permissions
+          schema:
+            properties:
+              id:
+                type: string
+        '500':
+          description: Internal error processing request
+          schema:
+            properties:
+              id:
+                type: string
+  /policy/tree:
+    post:
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: body
+          name: body
+          schema:
+            $ref: '#/definitions/Request'
+      responses:
+        '200':
+          description: successful operation
+          schema:
+            properties:
+              tree:
+                type: object
+              messages:
+                description: Human readable messages from the server
+                items:
+                  $ref: '#/definitions/Message'
+                type: array
+        '400':
+          description: Bad request
+          schema:
+            properties:
+              id:
+                type: string
+              messages:
+                description: Human readable messages from the server
+                items:
+                  $ref: '#/definitions/Message'
+                type: array
+        '401':
+          description: Token accessor invalid/not enough permissions
+          schema:
+            properties:
+              id:
+                type: string
+        '500':
+          description: Internal error processing request
+          schema:
+            properties:
+              id:
+                type: string
+      security:
+        - TokenAccessorAuth: []
+      tags:
+        - policy
+      operationId: policyTree
+      summary: Generates a tree using policies
+  /group/search/policy:
+    get:
+      security:
+        - TokenAccessorAuth: [ ]
+      tags:
+        - group
+      operationId: searchGroupWithPolicy
+      summary: Search which groups have a policy
+      produces:
+        - application/json
+      parameters:
+        - in: query
+          name: policyName
+          type: string
+          required: true
+          description: Name of policy
+        - in: query
+          name: namespace
+          type: string
+          required: true
+          description: Namespace of the policy
+      responses:
+        '200':
+          description: successful operation
+          schema:
+            properties:
+              groups:
+                description: The groups that have the policy
+                type: object
+                additionalProperties:
+                  type: object
+              additionalGroups:
+                description: Any additional groups that might be related (such as parent or member groups)
+                type: object
+                additionalProperties:
+                  type: object
+              messages:
+                description: Human readable messages from the server
+                items:
+                  $ref: '#/definitions/Message'
+                type: array
+            type: object
+        '400':
+          description: Bad request
+          schema:
+            properties:
+              id:
+                type: string
+              messages:
+                description: Human readable messages from the server
+                items:
+                  $ref: '#/definitions/Message'
+                type: array
+        '404':
+          description: Policy not found
+          schema:
+            properties:
+              id:
+                type: string
+        '401':
+          description: Token accessor invalid/not enough permissions
+          schema:
+            properties:
+              id:
+                type: string
+        '500':
+          description: Internal error processing request
+          schema:
+            properties:
+              id:
+                type: string
+  /auth/search/policy:
+    get:
+      security:
+        - TokenAccessorAuth: [ ]
+      tags:
+        - auth
+      operationId: searchAuthWithPolicy
+      summary: Search which auth roles have a policy
+      produces:
+        - application/json
+      parameters:
+        - in: query
+          name: policyName
+          type: string
+          required: true
+          description: Name of policy
+        - in: query
+          name: namespace
+          type: string
+          required: true
+          description: Namespace of the policy
+      responses:
+        '200':
+          description: successful operation
+          schema:
+            properties:
+              authRoles:
+                description: The auth roles that have the policy
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: object
+              messages:
+                description: Human readable messages from the server
+                items:
+                  $ref: '#/definitions/Message'
+                type: array
+            type: object
+        '400':
+          description: Bad request
+          schema:
+            properties:
+              id:
+                type: string
+              messages:
+                description: Human readable messages from the server
+                items:
+                  $ref: '#/definitions/Message'
+                type: array
+        '401':
+          description: Token accessor invalid/not enough permissions
+          schema:
+            properties:
+              id:
+                type: string
+        '404':
+          description: Policy not found
+          schema:
+            properties:
+              id:
+                type: string
+        '500':
+          description: Internal error processing request
+          schema:
+            properties:
+              id:
+                type: string
+definitions:
+  Message:
+    properties:
+      msgType:
+        type: string
+        enum: [info, warn, err]
+      msgBody:
+        type: string
+  PolicySegment:
+    properties:
+      name:
+        description: name of the path segment
+        type: string
+      raw:
+        description: raw policy segment (hcl or json)
+        type: string
+  Request:
+    properties:
+      pathDetails:
+        properties:
+          namespace:
+            description: The namespace in which the path/query occurs
+            example: foo/dev
+            type: string
+          op:
+            description: The HTTP operation for the pqth
+            example: create
+            type: string
+            enum: [create, read, update, patch, delete, list, help, alias-lookahead, resolve-role, revoke, renew, rollback]
+          path:
+            description: The vault path for the query
+            example: secret/data/foo/bar
+            type: string
+        type: object
+      tokenDetails:
+        properties:
+          namespacePath:
+            type: string
+          policies:
+            type: array
+            items:
+              type: string
+          identityPolicies:
+            type: array
+            items:
+              type: string
+          externalNamespacePolicies:
+            type: object
+            additionalProperties:
+              type: array
+              items:
+                type: string
+      rawPolicy:
+        description: pass in raw HCL or JSON policy to add to ACL
+        properties:
+          policy:
+            type: string
+            description: Raw Policy
+          namespace:
+            type: string
+            description: The namespace this policy should be in
+            example: ]/mccdev
+          name:
+            type: string
+            description: name of the policy (should be unique)
+        required:
+          - policy
+          - namespace
+          - name
+      policies:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        description: >-
+          Policies to check the query with (if policies is provided under tokenDetails, then this can be empty)
+        example:
+          foo/:
+            - root-policy-a
+            - root-policy-b
+            - root-policy-c
+          foo/dev:
+            - policy-a
+            - policy-b
+        type: object
+    type: object
+  Response:
+    required:
+      - allowed
+    properties:
+      allowed:
+        description: whether the operation is allowed or not
+        type: boolean
+      allowedCap:
+        description: array of operations that is allowed (if allowed=true)
+        example:
+          - read
+          - create
+        items:
+          type: string
+        type: array
+      denyingPolicySegments:
+        type: object
+        additionalProperties:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/definitions/PolicySegment'
+        description: Policies that deny the operation (if allowed=false)
+        example:
+          foo/:
+            root-policy-a:
+              - name: <segment-name>
+                raw: <-raw-policy-segment>
+      grantingPolicySegments:
+        type: object
+        additionalProperties:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/definitions/PolicySegment'
+        description: Policies that allow the operation (if allowed=true)
+        example:
+          foo/:
+            root-policy-a:
+                - name: <segment-name>
+                  raw: <-raw-policy-segment>
+      messages:
+        description: Human readable mesages from the server
+        example:
+          - msgType: info
+            msgBody: Hello
+          - msgType: warn
+            msgBody: World
+        items:
+          $ref: '#/definitions/Message'
+        type: array
+    type: object
+securityDefinitions:
+  TokenAccessorAuth:
+    in: header
+    name: X-VAULT-TOKEN
+    type: apiKey
+tags:
+  - description: Operations around vault policy
+    name: policy
+x-components: {}
+
